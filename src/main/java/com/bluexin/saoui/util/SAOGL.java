@@ -5,7 +5,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.texture.TextureManager;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.client.resources.IReloadableResourceManager;
+import net.minecraft.client.settings.GameSettings;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -24,25 +28,21 @@ public final class SAOGL {
     private static FontRenderer glFont() {
         final Minecraft mc = glMinecraft();
 
-        if (mc != null) {
-            return mc.fontRendererObj;
-        } else {
-            return null;
-        }
+        return mc != null ? mc.fontRendererObj : null;
     }
 
     private static TextureManager glTextureManager() {
         final Minecraft mc = glMinecraft();
 
-        if (mc != null) {
-            return mc.getTextureManager();
-        } else {
-            return null;
-        }
+        return mc != null ? mc.getTextureManager() : null;
     }
 
     public static void glColor(float red, float green, float blue, float alpha) {
         GlStateManager.color(red, green, blue, alpha);
+    }
+
+    public static void glColorRGBA(SAOColor color) {
+        glColorRGBA(color.rgba);
     }
 
     public static void glColorRGBA(int rgba) {
@@ -63,10 +63,8 @@ public final class SAOGL {
         return (alpha << 24) | (red << 16) | (blue << 8) | (green);
     }
 
-    private static void glString(FontRenderer font, String string, int x, int y, int argb, boolean shadow) {
-        if (font != null) {
-            font.drawString(string, x, y, glFontColor(argb), shadow);
-        }
+    public static void glString(FontRenderer font, String string, int x, int y, int argb, boolean shadow) {
+        if (font != null) font.drawString(string, x, y, glFontColor(argb), shadow);
     }
 
     public static void glString(FontRenderer font, String string, int x, int y, int argb) {
@@ -81,12 +79,21 @@ public final class SAOGL {
         glString(string, x, y, argb, false);
     }
 
-    private static int glStringWidth(FontRenderer font, String string) {
-        if (font != null) {
-            return font.getStringWidth(string);
-        } else {
-            return 0;
+    public static void setFont(Minecraft mc, boolean custom) {
+        if (mc.fontRendererObj == null) return;
+        ResourceLocation fontLocation = custom? new ResourceLocation(SAOMod.MODID, "textures/ascii.png"): new ResourceLocation("textures/font/ascii.png");
+        GameSettings gs = mc.gameSettings;
+        mc.fontRendererObj = new FontRenderer(gs, fontLocation, mc.getTextureManager(), false);
+        if (gs.language != null) {
+            mc.fontRendererObj.setUnicodeFlag(mc.isUnicode());
+            mc.fontRendererObj.setBidiFlag(mc.getLanguageManager().isCurrentLanguageBidirectional());
         }
+        ((IReloadableResourceManager) mc.getResourceManager()).registerReloadListener(mc.fontRendererObj);
+    }
+
+    private static int glStringWidth(FontRenderer font, String string) {
+        if (font != null) return font.getStringWidth(string);
+        else return 0;
     }
 
     public static int glStringWidth(String string) {
@@ -94,11 +101,8 @@ public final class SAOGL {
     }
 
     private static int glStringHeight(FontRenderer font) {
-        if (font != null) {
-            return font.FONT_HEIGHT;
-        } else {
-            return 0;
-        }
+        if (font != null) return font.FONT_HEIGHT;
+        else return 0;
     }
 
     public static int glStringHeight() {
@@ -106,23 +110,21 @@ public final class SAOGL {
     }
 
     private static void glBindTexture(TextureManager textureManager, ResourceLocation location) {
-        if (textureManager != null) {
-            textureManager.bindTexture(location);
-        }
+        if (textureManager != null) textureManager.bindTexture(location);
     }
 
     public static void glBindTexture(ResourceLocation location) {
         glBindTexture(glTextureManager(), location);
     }
 
-    public static void glTexturedRect(int x, int y, float z, int width, int height, int srcX, int srcY, int srcWidth, int srcHeight) {
+    public static void glTexturedRect(double x, double y, double z, double width, double height, double srcX, double srcY, double srcWidth, double srcHeight) {
         float f = 0.00390625F;
         float f1 = 0.00390625F;
         Tessellator tessellator = Tessellator.getInstance();
         tessellator.getWorldRenderer().startDrawingQuads();
-        tessellator.getWorldRenderer().addVertexWithUV((double) (x), (double) (y + height), (double) z, (double) ((float) (srcX) * f), (double) ((float) (srcY + srcHeight) * f1));
-        tessellator.getWorldRenderer().addVertexWithUV((double) (x + width), (double) (y + height), (double) z, (double) ((float) (srcX + srcWidth) * f), (double) ((float) (srcY + srcHeight) * f1));
-        tessellator.getWorldRenderer().addVertexWithUV((double) (x + width), (double) (y), (double) z, (double) ((float) (srcX + srcWidth) * f), (double) ((float) (srcY) * f1));
+        tessellator.getWorldRenderer().addVertexWithUV((double) (x), y + height, (double) z, (double) ((float) (srcX) * f), (double) ((float) (srcY + srcHeight) * f1));
+        tessellator.getWorldRenderer().addVertexWithUV(x + width, y + height, (double) z, (double) ((float) (srcX + srcWidth) * f), (double) ((float) (srcY + srcHeight) * f1));
+        tessellator.getWorldRenderer().addVertexWithUV(x + width, (double) (y), (double) z, (double) ((float) (srcX + srcWidth) * f), (double) ((float) (srcY) * f1));
         tessellator.getWorldRenderer().addVertexWithUV((double) (x), (double) (y), (double) z, (double) ((float) (srcX) * f), (double) ((float) (srcY) * f1));
         tessellator.draw();
     }
@@ -150,11 +152,8 @@ public final class SAOGL {
     }
 
     public static void glAlpha(boolean flag) {
-        if (flag) {
-            GlStateManager.enableAlpha();
-        } else {
-            GlStateManager.disableAlpha();
-        }
+        if (flag) GlStateManager.enableAlpha();
+        else GlStateManager.disableAlpha();
     }
 
     public static void alphaFunc(int src, int dst) {
@@ -162,11 +161,8 @@ public final class SAOGL {
     }
 
     public static void glBlend(boolean flag) {
-        if (flag) {
-            GlStateManager.enableBlend();
-        } else {
-            GlStateManager.disableBlend();
-        }
+        if (flag) GlStateManager.enableBlend();
+        else GlStateManager.disableBlend();
     }
 
     public static void blendFunc(int src, int dst) {
@@ -178,11 +174,8 @@ public final class SAOGL {
     }
 
     public static void glDepth(boolean flag) {
-        if (flag) {
-            GlStateManager.enableDepth();
-        } else {
-            GlStateManager.disableDepth();
-        }
+        if (flag) GlStateManager.enableDepth();
+        else GlStateManager.disableDepth();
     }
 
     public static void depthMask(boolean flag) {
@@ -190,35 +183,23 @@ public final class SAOGL {
     }
 
     public static void glDepthTest(boolean flag) {
-        if (flag) {
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-        } else {
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-        }
+        if (flag) GL11.glEnable(GL11.GL_DEPTH_TEST);
+        else GL11.glDisable(GL11.GL_DEPTH_TEST);
     }
 
     public static void glRescaleNormal(boolean flag) {
-        if (flag) {
-            GlStateManager.enableRescaleNormal();
-        } else {
-            GlStateManager.disableRescaleNormal();
-        }
+        if (flag) GlStateManager.enableRescaleNormal();
+        else GlStateManager.disableRescaleNormal();
     }
 
     public static void glTexture2D(boolean flag) {
-        if (flag) {
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
-        } else {
-            GL11.glDisable(GL11.GL_TEXTURE_2D);
-        }
+        if (flag) GL11.glEnable(GL11.GL_TEXTURE_2D);
+        else GL11.glDisable(GL11.GL_TEXTURE_2D);
     }
 
     public static void glCullFace(boolean flag) {
-        if (flag) {
-            GlStateManager.enableCull();
-        } else {
-            GlStateManager.disableCull();
-        }
+        if (flag) GlStateManager.enableCull();
+        else GlStateManager.disableCull();
     }
 
     public static void glStartUI(Minecraft mc) {

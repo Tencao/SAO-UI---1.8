@@ -1,12 +1,17 @@
 package com.bluexin.saoui.util;
 
+import baubles.api.BaublesApi;
+import baubles.api.IBauble;
 import net.minecraft.block.BlockPumpkin;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.IInventory;
 import net.minecraft.item.*;
+import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 @SideOnly(Side.CLIENT)
-public enum SAOInventory {
+public enum SAOInventory { // Todo: support for TConstruct
 
     EQUIPMENT((stack, state) -> {
         final Item item = stack.getItem();
@@ -14,41 +19,35 @@ public enum SAOInventory {
         return (item instanceof ItemArmor) || ((item instanceof ItemBlock) && (((ItemBlock) item).block instanceof BlockPumpkin));
     }),
 
-    WEAPONS((stack, state) -> {
+    WEAPONS((stack, state) -> stack.getItem() instanceof ItemSword),
+
+    BOWS((stack, state) -> stack.getItem() instanceof ItemBow),
+
+    PICKAXE((stack, state) -> stack.getItem() instanceof ItemPickaxe),
+
+    AXE((stack, state) -> stack.getItem() instanceof ItemAxe),
+
+    SHOVEL((stack, state) -> stack.getItem() instanceof ItemSpade),
+
+    COMPATTOOLS((stack, state) -> {
         final Item item = stack.getItem();
 
-        return (item instanceof ItemSword) || (item instanceof ItemTool) || (item instanceof ItemBow);
+        return ((item instanceof ItemTool) || (item instanceof ItemBow) || (item instanceof ItemSword));
     }),
 
-    ACCESSORY((stack, state) -> {
+    ACCESSORY((stack, state) -> stack.getItem() instanceof IBauble),
+
+    CONSUMABLES((stack, state) -> {
         final Item item = stack.getItem();
 
         return (
                 (item instanceof ItemExpBottle) ||
-                        (item instanceof ItemBucket) ||
                         (item instanceof ItemPotion) ||
-                        (item instanceof ItemFishingRod) ||
-                        (item instanceof ItemCarrotOnAStick) ||
-                        (item instanceof ItemEnchantedBook) ||
-                        (item instanceof ItemEditableBook) ||
-                        (item instanceof ItemMapBase) ||
-                        (item instanceof ItemNameTag) ||
-                        (item instanceof ItemSaddle) ||
-                        (item instanceof ItemWritableBook) ||
-                        (item instanceof ItemLead) ||
-                        (item instanceof ItemFlintAndSteel) ||
-                        (item instanceof ItemShears)
+                        (item instanceof ItemFood)
         );
     }),
 
-    ITEMS(new ItemFilter() {
-
-        @Override
-        public boolean filter(ItemStack stack, boolean state) {
-            return !state || (!EQUIPMENT.isFine(stack, state));
-        }
-
-    });
+    ITEMS((stack, state) -> !state || (!EQUIPMENT.isFine(stack, state)));
 
     private final ItemFilter itemFilter;
 
@@ -60,6 +59,22 @@ public enum SAOInventory {
         return itemFilter.filter(stack, state);
     }
 
+    public static IInventory getBaubles(EntityPlayer player)
+    {
+        if (!isBaublesLoaded())
+        {
+            return null;
+        } else
+        {
+            return BaublesApi.getBaubles(player);
+        }
+    }
+
+    public static boolean isBaublesLoaded(){
+        return Loader.isModLoaded("Baubles");
+    }
+
+    @FunctionalInterface
     private interface ItemFilter {
         boolean filter(ItemStack stack, boolean state);
     }

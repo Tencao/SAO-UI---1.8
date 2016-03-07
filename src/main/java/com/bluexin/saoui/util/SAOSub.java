@@ -1,6 +1,5 @@
 package com.bluexin.saoui.util;
 
-import com.bluexin.saoui.SAOMod;
 import com.bluexin.saoui.ui.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
@@ -11,6 +10,8 @@ import net.minecraft.util.StatCollector;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import java.util.List;
+
 @SideOnly(Side.CLIENT)
 public final class SAOSub {
 
@@ -20,7 +21,7 @@ public final class SAOSub {
     private static SAOMenuGUI resetSub(Minecraft mc, SAOMenuGUI sub) {
         sub.elements.clear();
 
-        sub.elements.add(new SAOLabelGUI(sub, 0, 0, sub.width, SAOMod.getName(mc), SAOAlign.CENTER));
+        sub.elements.add(new SAOLabelGUI(sub, 0, 0, sub.width, StaticPlayerHelper.getName(mc), SAOAlign.CENTER));
         sub.elements.add(new SAOVLineGUI(sub, 0, 0, 150));
 
         return sub;
@@ -29,16 +30,12 @@ public final class SAOSub {
     private static SAOMenuGUI createSub(Minecraft mc, SAOElementGUI element, int x, int y) {
         return resetSub(mc, new SAOPanelGUI(element, x, y, 175, 240));
     }
-    
+
     public static SAOMenuGUI createSocialSub(Minecraft mc, SAOElementGUI element, int x, int y) {
         final SAOMenuGUI sub = createSub(mc, element, x, y);
-        final String[] party = SAOMod.listPartyMembers();
+        final String[] party = PartyHelper.instance().listMembers();
 
-        if (party != null) {
-            return setPartySub(mc, sub);
-        } else {
-            return setFriendsSub(mc, sub);
-        }
+        return party != null ? setPartySub(mc, sub) : setFriendsSub(mc, sub);
     }
 
     public static SAOMenuGUI createNavigationSub(Minecraft mc, SAOElementGUI element, int x, int y) {
@@ -48,7 +45,7 @@ public final class SAOSub {
     public static SAOMenuGUI createMainProfileSub(Minecraft mc, SAOElementGUI element, int x, int y) {
         return resetProfileSub(mc, new SAOPanelGUI(element, x, y, 175, 240), mc.thePlayer);
     }
-    
+
     public static SAOMenuGUI resetFriendsSub(Minecraft mc, SAOMenuGUI sub) {
         return setFriendsSub(mc, resetSub(mc, sub));
     }
@@ -60,7 +57,7 @@ public final class SAOSub {
     public static SAOMenuGUI resetProfileSub(Minecraft mc, SAOMenuGUI sub, EntityPlayer player) {
         sub.elements.clear();
 
-        sub.elements.add(new SAOLabelGUI(sub, 0, 0, sub.width, SAOMod.getName(player), SAOAlign.CENTER));
+        sub.elements.add(new SAOLabelGUI(sub, 0, 0, sub.width, StaticPlayerHelper.getName(player), SAOAlign.CENTER));
         sub.elements.add(new SAOVLineGUI(sub, 0, 0, 150));
 
         return setProfileSub(mc, sub, player);
@@ -69,7 +66,7 @@ public final class SAOSub {
     public static SAOMenuGUI resetCheckPositionSub(Minecraft mc, SAOMenuGUI sub, EntityPlayer player, int zoom, String title) {
         sub.elements.clear();
 
-        sub.elements.add(new SAOLabelGUI(sub, 0, 0, sub.width, SAOMod.getName(player), SAOAlign.CENTER));
+        sub.elements.add(new SAOLabelGUI(sub, 0, 0, sub.width, StaticPlayerHelper.getName(player), SAOAlign.CENTER));
         sub.elements.add(new SAOVLineGUI(sub, 0, 0, 150));
 
         return setCheckPositionSub(mc, sub, player, zoom, title);
@@ -78,7 +75,7 @@ public final class SAOSub {
     public static SAOMenuGUI resetQuestsSub(Minecraft mc, SAOMenuGUI sub, EntityPlayer player) {
         sub.elements.clear();
 
-        sub.elements.add(new SAOLabelGUI(sub, 0, 0, sub.width, SAOMod.getName(player), SAOAlign.CENTER));
+        sub.elements.add(new SAOLabelGUI(sub, 0, 0, sub.width, StaticPlayerHelper.getName(player), SAOAlign.CENTER));
         sub.elements.add(new SAOVLineGUI(sub, 0, 0, 150));
 
         return setQuestsSub(mc, sub, player);
@@ -97,65 +94,47 @@ public final class SAOSub {
 
         return sub;
     }
-    
+
     private static SAOMenuGUI setFriendsSub(Minecraft mc, SAOMenuGUI sub) {
-        final String[] friends = SAOMod.listFriends();
-        final boolean[] online = SAOMod.isOnline(mc, friends);
+        final String[] friends = FriendsHandler.instance().listFriends();
+        final boolean[] online = StaticPlayerHelper.isOnline(mc, friends);
 
         int onlineCount = 0;
 
-        for (final boolean value : online) {
-            if (value) {
-                onlineCount++;
-            }
-        }
+        for (final boolean value : online) if (value) onlineCount++;
 
         if (onlineCount > 0) {
             final StringBuilder builder = new StringBuilder();
 
-            for (int i = 0; i < friends.length; i++) {
-                if (online[i]) {
-                    builder.append(" - ").append(friends[i]).append('\n');
-                }
-            }
+            for (int i = 0; i < friends.length; i++)
+                if (online[i]) builder.append(" - ").append(friends[i]).append('\n');
 
             sub.elements.add(new SAOLabelGUI(sub, 0, 0, '-' + StatCollector.translateToLocal("guiFriends") + '-', SAOAlign.CENTER));
             sub.elements.add(new SAOTextGUI(sub, 0, 0, builder.toString()));
-        } else {
-            setEmptySub(mc, sub);
-        }
+        } else setEmptySub(mc, sub);
 
         return sub;
     }
 
     private static SAOMenuGUI setPartySub(Minecraft mc, SAOMenuGUI sub) {
-        final String[] party = SAOMod.listPartyMembers();
+        final String[] party = PartyHelper.instance().listMembers();
 
         if (party != null) {
-            final boolean[] online = SAOMod.isOnline(mc, party);
+            final boolean[] online = StaticPlayerHelper.isOnline(mc, party);
             final StringBuilder builder = new StringBuilder();
 
-            for (int i = 0; i < party.length; i++) {
-                if (online[i]) {
-                    builder.append(" - ").append(party[i]).append('\n');
-                }
-            }
+            for (int i = 0; i < party.length; i++) if (online[i]) builder.append(" - ").append(party[i]).append('\n');
 
             sub.elements.add(new SAOLabelGUI(sub, 0, 0, '-' + StatCollector.translateToLocal("guiParty") + '-', SAOAlign.CENTER));
             sub.elements.add(new SAOTextGUI(sub, 0, 0, builder.toString()));
-        } else {
-            setEmptySub(mc, sub);
-        }
+        } else setEmptySub(mc, sub);
 
         return sub;
     }
 
     private static SAOMenuGUI setProfileSub(Minecraft mc, SAOMenuGUI sub, EntityPlayer player) {
-        if (player != null) {
-            sub.elements.add(new SAOCharacterViewGUI(sub, 0, 0, sub.width, 150, player));
-        } else {
-            setEmptySub(mc, sub);
-        }
+        if (player != null) sub.elements.add(new SAOCharacterViewGUI(sub, 0, 0, sub.width, 150, player));
+        else setEmptySub(mc, sub);
 
         return sub;
     }
@@ -165,20 +144,15 @@ public final class SAOSub {
             final SAOMapGUI map = new SAOMapGUI(sub, 0, 0, 4, player);
             map.zoom = zoom;
 
-            if (title != null) {
-                sub.elements.add(new SAOLabelGUI(sub, 0, 0, sub.width, title, SAOAlign.CENTER));
-            }
+            if (title != null) sub.elements.add(new SAOLabelGUI(sub, 0, 0, sub.width, title, SAOAlign.CENTER));
 
             sub.elements.add(map);
-        } else {
-            setEmptySub(mc, sub);
-        }
+        } else setEmptySub(mc, sub);
 
         return sub;
     }
 
-    @SuppressWarnings("unchecked")
-	private static SAOMenuGUI setQuestsSub(Minecraft mc, SAOMenuGUI sub, EntityPlayer player) {
+    private static SAOMenuGUI setQuestsSub(Minecraft mc, SAOMenuGUI sub, EntityPlayer player) {
         sub.elements.add(new SAOLabelGUI(sub, 0, 0, sub.width, '-' + StatCollector.translateToLocal("guiQuestList") + '-', SAOAlign.CENTER));
 
         final SAOMenuGUI questList = new SAOMenuGUI(sub, 0, 0, sub.width, 150);
@@ -187,13 +161,11 @@ public final class SAOSub {
         final StatFileWriter stats = mc.thePlayer.getStatFileWriter();
 
         if (stats != null) {
-            AchievementList.achievementList.stream().filter(obj0 -> obj0 instanceof Achievement).forEach(obj0 -> {
-                final Achievement ach0 = (Achievement) obj0;
-
-                if ((ach0.isAchievement()) && (!stats.hasAchievementUnlocked(ach0)) && (stats.canUnlockAchievement(ach0))) {
-                    questList.elements.add(new SAOQuestGUI(questList, 0, 0, questList.width, ach0));
-                }
-            });
+            final List<Achievement> ach = AchievementList.achievementList;
+            ach.stream()
+                    .filter(obj0 -> obj0 instanceof Achievement).map(obj0 -> obj0)
+                    .filter(ach0 -> ach0.isAchievement() && !stats.hasAchievementUnlocked(ach0) && stats.canUnlockAchievement(ach0))
+                    .forEach(ach0 -> questList.elements.add(new SAOQuestGUI(questList, 0, 0, questList.width, ach0)));
         }
 
         sub.elements.add(questList);
@@ -235,9 +207,7 @@ public final class SAOSub {
                 builder.append((double) ((int) (Math.sqrt(player.getDistanceSqToEntity(search)) * 1000)) / 1000);
                 builder.append('\n');
             }
-        } else {
-            floor.append("0");
-        }
+        } else floor.append("0");
 
         return new SAOString[]{
                 new SAOJString(floor.toString()), new SAOJString(builder.toString())

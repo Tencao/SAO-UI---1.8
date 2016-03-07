@@ -1,11 +1,12 @@
 package com.bluexin.saoui.ui;
 
-import com.bluexin.saoui.SAOIngameGUI;
 import com.bluexin.saoui.util.*;
-
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.LWJGLException;
+import org.lwjgl.input.Cursor;
 import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
@@ -17,29 +18,30 @@ public abstract class SAOScreenGUI extends GuiScreen implements SAOParentGUI {
 
     private static final float ROTATION_FACTOR = 0.25F;
     protected static SAOCursorStatus CURSOR_STATUS = SAOCursorStatus.SHOW;
-
+    protected final List<SAOElementGUI> elements;
+    private final Cursor emptyCursor;
     private int mouseX, mouseY;
-
     private int mouseDown;
     private float mouseDownValue;
-
-    protected final List<SAOElementGUI> elements;
-
     private float[] rotationYaw, rotationPitch;
-    private boolean grabbed;
+    private boolean cursorHidden = false;
 
     protected SAOScreenGUI() {
         super();
         elements = new ArrayList<>();
-        grabbed = false;
+        Cursor cursor = null;
+        try {
+            cursor = new Cursor(1, 1, 0, 0, 1, BufferUtils.createIntBuffer(1), null);
+        } catch (LWJGLException e) {
+            e.printStackTrace();
+        } finally {
+            emptyCursor = cursor;
+        }
     }
 
     @Override
     public void initGui() {
-        if (CURSOR_STATUS != SAOCursorStatus.DEFAULT) {
-            Mouse.setGrabbed(true);
-            grabbed = true;
-        }
+        if (CURSOR_STATUS != SAOCursorStatus.DEFAULT) hideCursor();
 
         super.initGui();
         elements.clear();
@@ -54,21 +56,11 @@ public abstract class SAOScreenGUI extends GuiScreen implements SAOParentGUI {
     }
 
     private int getCursorX() {
-    	if (SAOOption.CURSOR_MOVEMENT.value){
-            return SAOOption.CURSOR_MOVEMENT.value ? (width / 2 - mouseX) / 2 : 0;
-    	}
-    	else {
-            return 0;
-    	}
+        return SAOOption.CURSOR_MOVEMENT.getValue() ? (width / 2 - mouseX) / 2 : 0;
     }
 
     private int getCursorY() {
-    	if (SAOOption.CURSOR_MOVEMENT.value){
-        return SAOOption.CURSOR_MOVEMENT.value ? (height / 2 - mouseY) / 2 : 0;
-    	}
-    	else {
-            return 0;
-    	}
+        return SAOOption.CURSOR_MOVEMENT.getValue() ? (height / 2 - mouseY) / 2 : 0;
     }
 
     @Override
@@ -85,10 +77,6 @@ public abstract class SAOScreenGUI extends GuiScreen implements SAOParentGUI {
     public void updateScreen() {
         if (this.elements == null) return;
         for (int i = elements.size() - 1; i >= 0; i--) {
-            if (i >= elements.size()) {
-                continue;
-            }
-
             if (elements.get(i).removed()) {
                 elements.get(i).close(mc);
                 elements.remove(i);
@@ -118,16 +106,10 @@ public abstract class SAOScreenGUI extends GuiScreen implements SAOParentGUI {
         SAOGL.glBlend(true);
         SAOGL.tryBlendFuncSeparate(770, 771, 1, 0);
 
-        for (int i = elements.size() - 1; i >= 0; i--) {
-            if (i >= elements.size()) {
-                continue;
-            }
-
-            elements.get(i).draw(mc, cursorX, cursorY);
-        }
+        for (int i = elements.size() - 1; i >= 0; i--) elements.get(i).draw(mc, cursorX, cursorY);
 
         if (CURSOR_STATUS == SAOCursorStatus.SHOW) {
-            SAOGL.glBindTexture(SAOOption.ORIGINAL_UI.value? SAOResources.gui: SAOResources.guiCustom);
+            SAOGL.glBindTexture(SAOOption.ORIGINAL_UI.getValue() ? SAOResources.gui : SAOResources.guiCustom);
 
             SAOGL.glBlend(true);
             SAOGL.tryBlendFuncSeparate(770, 771, 1, 0);
@@ -135,13 +117,10 @@ public abstract class SAOScreenGUI extends GuiScreen implements SAOParentGUI {
             if (mouseDown != 0) {
                 final float fval = f * 0.1F;
 
-                if (mouseDownValue + fval < 1.0F) {
-                    mouseDownValue += fval;
-                } else {
-                    mouseDownValue = 1.0F;
-                }
+                if (mouseDownValue + fval < 1.0F) mouseDownValue += fval;
+                else mouseDownValue = 1.0F;
 
-                SAOGL.glColorRGBA(SAOColor.multiplyAlpha(SAOColor.CURSOR_COLOR, mouseDownValue));
+                SAOGL.glColorRGBA(SAOColor.CURSOR_COLOR.multiplyAlpha(mouseDownValue));
                 SAOGL.glTexturedRect(cursorX - 7, cursorY - 7, 35, 115, 15, 15);
 
                 SAOGL.glColorRGBA(SAOColor.DEFAULT_COLOR);
@@ -161,19 +140,10 @@ public abstract class SAOScreenGUI extends GuiScreen implements SAOParentGUI {
     protected void keyTyped(char ch, int key) throws IOException {
         super.keyTyped(ch, key);
 
-        for (int i = elements.size() - 1; i >= 0; i--) {
-            if (i >= elements.size()) {
-                continue;
-            }
-
-            if (elements.get(i).focus) {
-                if (elements.get(i).keyTyped(mc, ch, key)) {
-                    actionPerformed(elements.get(i), SAOAction.KEY_TYPED, key);
-                }
-            }
-        }
+        elements.stream().filter(element -> element.focus && element.keyTyped(mc, ch, key)).forEach(element -> actionPerformed(element, SAOAction.KEY_TYPED, key));
     }
 
+    // TODO: check the way elements is built... Breakpoint gives some weird result (at least for base menu)
     @Override
     protected void mouseClicked(int cursorX, int cursorY, int button) throws IOException {
         super.mouseClicked(cursorX, cursorY, button);
@@ -183,62 +153,45 @@ public abstract class SAOScreenGUI extends GuiScreen implements SAOParentGUI {
 
         for (int i = elements.size() - 1; i >= 0; i--) {
             if (i >= elements.size()) {
-                continue;
+                if (elements.size() > 0) i = elements.size() - 1;
+                else break;
             }
 
             if (elements.get(i).mouseOver(cursorX, cursorY)) {
-                if (elements.get(i).mousePressed(mc, cursorX, cursorY, button)) {
+                if (elements.get(i).mousePressed(mc, cursorX, cursorY, button))
                     actionPerformed(elements.get(i), SAOAction.getAction(button, true), button);
-                }
 
                 clickedElement = true;
             }
         }
 
-        if (!clickedElement) {
-            backgroundClicked(cursorX, cursorY, button);
-        }
+        if (!clickedElement) backgroundClicked(cursorX, cursorY, button);
     }
 
     @Override
     protected void mouseReleased(int cursorX, int cursorY, int button) {
         super.mouseReleased(cursorX, cursorY, button);
-        mouseDown &= (~(0x1 << button));
+        mouseDown &= ~(0x1 << button);
 
         for (int i = elements.size() - 1; i >= 0; i--) {
             if (i >= elements.size()) {
-                continue;
+                if (elements.size() > 0) i = elements.size() - 1;
+                else break;
             }
-
-            if (elements.get(i).mouseOver(cursorX, cursorY, button)) {
-                if (elements.get(i).mouseReleased(mc, cursorX, cursorY, button)) {
-                    actionPerformed(elements.get(i), SAOAction.getAction(button, false), button);
-                }
-            }
+            if (elements.get(i).mouseOver(cursorX, cursorY, button) && elements.get(i).mouseReleased(mc, cursorX, cursorY, button))
+                actionPerformed(elements.get(i), SAOAction.getAction(button, false), button);
         }
     }
 
     protected void backgroundClicked(int cursorX, int cursorY, int button) {
         if (button == 0) {
-            if (((SAOIngameGUI) mc.ingameGUI).backgroundClicked(cursorX, cursorY, button)) {
-                mc.displayGuiScreen(null);
-                mc.setIngameFocus();
-            }
+            mc.displayGuiScreen(null);
+            mc.setIngameFocus();
         }
     }
 
     private void mouseWheel(int cursorX, int cursorY, int delta) {
-        for (int i = elements.size() - 1; i >= 0; i--) {
-            if (i >= elements.size()) {
-                continue;
-            }
-
-            if (elements.get(i).mouseOver(cursorX, cursorY)) {
-                if (elements.get(i).mouseWheel(mc, cursorX, cursorY, delta)) {
-                    actionPerformed(elements.get(i), SAOAction.MOUSE_WHEEL, delta);
-                }
-            }
-        }
+        elements.stream().filter(element -> element.mouseOver(cursorX, cursorY) && element.mouseWheel(mc, cursorX, cursorY, delta)).forEach(element -> actionPerformed(element, SAOAction.MOUSE_WHEEL, delta));
     }
 
     @Override
@@ -255,35 +208,39 @@ public abstract class SAOScreenGUI extends GuiScreen implements SAOParentGUI {
             final int y = height - Mouse.getEventY() * height / mc.displayHeight - 1;
             final int delta = Mouse.getEventDWheel();
 
-            if (delta != 0) {
-                mouseWheel(x, y, delta);
-            }
+            if (delta != 0) mouseWheel(x, y, delta);
         }
     }
 
-    @Override
+    @Override // Might be only in the options part? Check if doable
     public boolean doesGuiPauseGame() {
-        return false;
+        return SAOOption.GUI_PAUSE.getValue();
     }
 
     @Override
     public void onGuiClosed() {
-        if (grabbed) {
-            Mouse.setGrabbed(false);
-        }
+        showCursor();
 
         close();
     }
 
     protected void close() {
-        for (int i = elements.size() - 1; i >= 0; i--) {
-            if (i >= elements.size()) {
-                continue;
-            }
-
-            elements.get(i).close(mc);
-            elements.remove(i);
-        }
+        elements.stream().forEach(el -> el.close(mc));
+        elements.clear();
     }
 
+    protected void hideCursor() {
+        if (!cursorHidden) toggleHideCursor();
+    }
+
+    protected void showCursor() {
+        if (cursorHidden) toggleHideCursor();
+    }
+
+    protected void toggleHideCursor() {
+        cursorHidden = !cursorHidden;
+        try {
+            Mouse.setNativeCursor(cursorHidden ? emptyCursor: null);
+        } catch (LWJGLException ignored) {}
+    }
 }

@@ -1,144 +1,152 @@
 package com.bluexin.saoui;
 
-import com.bluexin.saoui.util.SAOColorCursor;
-
+import com.bluexin.saoui.commands.Command;
+import com.bluexin.saoui.util.ColorStateHandler;
+import com.bluexin.saoui.util.SAOColorState;
+import com.bluexin.saoui.util.SAOOption;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.passive.IAnimals;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.util.ChatComponentText;
-import net.minecraftforge.event.entity.EntityJoinWorldEvent;
-import net.minecraftforge.event.entity.living.LivingAttackEvent;
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.event.entity.living.LivingDropsEvent;
-import net.minecraftforge.event.entity.living.LivingEvent.LivingUpdateEvent;
-import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.client.event.ClientChatReceivedEvent;
+import net.minecraftforge.event.entity.EntityEvent;
+import net.minecraftforge.event.entity.living.*;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
-import net.minecraftforge.event.entity.player.PlayerDropsEvent;
+import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent.ClientTickEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.fml.common.network.FMLNetworkEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 @SideOnly(Side.CLIENT)
-class SAOEventHandler {
-	
-	private final Minecraft mc = Minecraft.getMinecraft();
-	private boolean isPlaying = false;
+public class SAOEventHandler {
 
-    @SubscribeEvent
-    public void livingAttack(LivingAttackEvent e) {
-        this.livingHit(e.entityLiving, e.source.getEntity());
-    }
+    private final Minecraft mc = Minecraft.getMinecraft();
+    private boolean isPlaying = false;
 
-    @SubscribeEvent
-    public void livingHurt(LivingHurtEvent e) {
-        this.livingHit(e.entityLiving, e.source.getEntity());
-    }
-
-    private void livingHit(EntityLivingBase target, Entity source) {
-        if (target instanceof EntityPlayer && source instanceof EntityPlayer) {
-            if (target.getHealth() <= 0) {
-                SAOMod.onKillPlayer((EntityPlayer) source);
+    public void stateChanger(EntityLivingBase entity, boolean major, boolean aggro){
+        if (entity instanceof EntityPlayer) {
+            SAOColorState state = ColorStateHandler.getInstance().getSavedState(entity);
+            if (major){
+                if (state == SAOColorState.VIOLENT) {
+                    ColorStateHandler.getInstance().set(entity, SAOColorState.KILLER, true);
+                }else if (state == SAOColorState.INNOCENT || state == null)
+                    ColorStateHandler.getInstance().set(entity, SAOColorState.VIOLENT, true);
+            } else if (state == SAOColorState.INNOCENT || state == null)
+                ColorStateHandler.getInstance().set(entity, SAOColorState.VIOLENT, true);
+        }
+        else {
+            SAOColorState defaultState =ColorStateHandler.getInstance().getDefault(entity);
+            SAOColorState state = ColorStateHandler.getInstance().getSavedState(entity);
+            if (aggro && defaultState == SAOColorState.VIOLENT)
+                ColorStateHandler.getInstance().set(entity, SAOColorState.KILLER, true);
+            else if (major) {
+                if (state == SAOColorState.INNOCENT)
+                    ColorStateHandler.getInstance().set(entity, SAOColorState.VIOLENT, true);
+                else if (state == SAOColorState.VIOLENT)
+                    ColorStateHandler.getInstance().set(entity, SAOColorState.KILLER, true);
             } else {
-                SAOMod.onDamagePlayer((EntityPlayer) source);
+                if (defaultState == SAOColorState.INNOCENT && state != SAOColorState.VIOLENT)
+                    ColorStateHandler.getInstance().set(entity, SAOColorState.VIOLENT, true);
+                else if (defaultState == SAOColorState.VIOLENT && state != SAOColorState.KILLER)
+                    ColorStateHandler.getInstance().set(entity, SAOColorState.KILLER, true);
             }
         }
     }
 
+    public static void getColor(EntityLivingBase entity){
+        ColorStateHandler.getInstance().stateColor(entity);
+    }
+
     @SubscribeEvent
-    public void livingDeath(LivingDeathEvent e) {
-        if (e.entityLiving instanceof EntityPlayer) {
-            if (e.source.getEntity() instanceof EntityPlayer) {
-                SAOMod.onKillPlayer((EntityPlayer) e.source.getEntity());
+    public void checkAggro(LivingSetAttackTargetEvent e) {
+        if (SAOOption.AGGRO_SYSTEM.getValue() && ColorStateHandler.getInstance().getSavedState(e.entityLiving) != SAOColorState.KILLER  && e.getPhase().equals(TickEvent.Phase.END))
+            if (e.target instanceof EntityPlayer) {
+                stateChanger(e.entityLiving, false, true);
+                System.out.print(e.entityLiving.getCommandSenderName() + " sent to State Changer from checkAggro" + "\n");
             }
-        }
     }
 
     @SubscribeEvent
-    public void livingDrop(LivingDropsEvent e) {
-        if (e.entityLiving instanceof EntityPlayer) {
-            if (e.source.getEntity() instanceof EntityPlayer) {
-                SAOMod.onKillPlayer((EntityPlayer) e.source.getEntity());
+    public void checkAttack(LivingAttackEvent e) {
+        if (SAOOption.AGGRO_SYSTEM.getValue() && e.getPhase().equals(TickEvent.Phase.END))
+            if (e.source.getEntity() instanceof IAnimals)
+                if (e.entityLiving instanceof EntityPlayer) {
+                    if (e.entityLiving.getHealth() <= 0)
+                        stateChanger((EntityLivingBase) e.source.getEntity(), true, false);
+                    else stateChanger((EntityLivingBase) e.source.getEntity(), false, false);
+                    if (SAOOption.DEBUG_MODE.getValue())
+                        System.out.print(e.source.getEntity().getCommandSenderName() + " sent to State Changer from checkAttack" + "\n");
+                }
+    }
+
+    @SubscribeEvent
+    public void checkPlayerAttack(AttackEntityEvent e) {
+        if (SAOOption.AGGRO_SYSTEM.getValue() && e.getPhase().equals(TickEvent.Phase.END))
+            if (e.target instanceof EntityPlayer && e.target.getUniqueID() != e.entityPlayer.getUniqueID()) {
+                if (((EntityPlayer) e.target).getHealth() <= 0) stateChanger(e.entityPlayer, true, false);
+                else stateChanger(e.entityPlayer, false, false);
+                if (SAOOption.DEBUG_MODE.getValue())
+                    System.out.print(e.entityPlayer.getCommandSenderName() + " sent to State Changer from checkPlayerAttack" + "\n");
             }
+    }
+
+    @SubscribeEvent
+    public void checkKill(LivingDeathEvent e){
+        if (SAOOption.AGGRO_SYSTEM.getValue() && e.getPhase().equals(TickEvent.Phase.END)) {
+            if (e.source.getEntity() instanceof EntityLivingBase)
+                if (e.entityLiving instanceof EntityPlayer) {
+                    stateChanger((EntityLivingBase) e.source.getEntity(), true, false);
+                    if (SAOOption.DEBUG_MODE.getValue())
+                        System.out.print(e.source.getEntity().getCommandSenderName() + " sent to State Changer from checkKill" + "\n");
+                }
+            if (!(e.entityLiving instanceof EntityPlayer)) ColorStateHandler.getInstance().remove(e.entityLiving);
+        }
+        if (SAOOption.PARTICLES.getValue() && e.entity.worldObj.isRemote) SAORenderHandler.deadHandlers.add(e.entityLiving);
+    }
+
+    @SubscribeEvent
+    public void resetState(TickEvent.RenderTickEvent e){
+        if (SAOOption.AGGRO_SYSTEM.getValue())ColorStateHandler.getInstance().updateKeeper();
+        if (!SAOOption.AGGRO_SYSTEM.getValue()){
+            if (!ColorStateHandler.getInstance().isEmpty())ColorStateHandler.getInstance().clean();
         }
     }
 
     @SubscribeEvent
-    public void playerAttackEntity(AttackEntityEvent e) {
-        if (e.target instanceof EntityPlayer) {
-            final EntityPlayer player = (EntityPlayer) e.target;
-
-            if (player.getHealth() <= 0) {
-                SAOMod.onKillPlayer(e.entityPlayer);
-            } else {
-                SAOMod.onDamagePlayer(e.entityPlayer);
-            }
-        }
+    public void cleanStateMaps(FMLNetworkEvent.ClientDisconnectionFromServerEvent e){
+        ColorStateHandler.getInstance().clean();
     }
 
     @SubscribeEvent
-    public void playerDrops(PlayerDropsEvent e) {
-        if (e.source.getEntity() instanceof EntityPlayer) {
-            SAOMod.onKillPlayer((EntityPlayer) e.source.getEntity());
-        }
+    public void disableAggroOnServer(FMLNetworkEvent.ClientConnectedToServerEvent e){
+        if (!e.isLocal && SAOOption.AGGRO_SYSTEM.getValue()) SAOOption.AGGRO_SYSTEM.flip();
     }
 
     @SubscribeEvent
-    public void joinWorld(EntityJoinWorldEvent e) {
-        if (!SAOMod.verChecked && e.entity.worldObj.isRemote && e.entity instanceof EntityPlayer) {
-            String msg = VersionChecker.getUpdateNotif();
-            if (!msg.equals("")) ((EntityPlayer) e.entity).addChatComponentMessage(new ChatComponentText(msg));
-            SAOMod.verChecked = true;
-        }
+    public void genStateMaps(EntityEvent.EntityConstructing e){
+        if (e.entity instanceof EntityLivingBase)
+            if (ColorStateHandler.getInstance().getDefault((EntityLivingBase)e.entity) == null && !(e.entity instanceof EntityPlayer))
+                ColorStateHandler.getInstance().genDefaultState((EntityLivingBase)e.entity);
     }
-    
-    @SubscribeEvent
-    public void colorstateupdate (LivingUpdateEvent e){
-        long time = System.currentTimeMillis();
-        long lasttime = time;
 
-        long delay;
-
-        time = System.currentTimeMillis();
-        delay = Math.abs(time - lasttime);
-        lasttime = time;
-    	if (e.entityLiving instanceof EntityLivingBase){
-            for (final SAOColorCursor cursor : SAOMod.colorStates.values()) {
-                cursor.update(delay);
-            }
-    	}
-    }
-    
     @SubscribeEvent
-    public void abilityCheck (ClientTickEvent e){
-    	if (mc.thePlayer == null) {
+    public void abilityCheck(TickEvent.ClientTickEvent e) {
+        if (mc.thePlayer == null) {
             SAOMod.IS_SPRINTING = false;
             SAOMod.IS_SNEAKING = false;
         } else if (mc.inGameHasFocus) {
-            if (SAOMod.IS_SPRINTING) {
-                KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
-            }
-            if (SAOMod.IS_SNEAKING) {
-                KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), true);
-            }
+            if (SAOMod.IS_SPRINTING) KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
+            if (SAOMod.IS_SNEAKING) KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), true);
         }
     }
-    /*
-    @SubscribeEvent
-    public void lowHealth(TickEvent.PlayerTickEvent e)
-    {
-    	isPlaying = SAOSound.isSfxPlaying(SAOSound.LOW_HEALTH);
-    	if (!isPlaying){
-    		isPlaying = true;
-    		if (!(e.player.getHealth() <= 0)){
-    			if (e.player.getHealth() <= e.player.getMaxHealth() * 0.3F && !e.player.isDead){
-    				SAOSound.play(mc, SAOSound.LOW_HEALTH);
-    			}
-    		}
-    	}
-    	
-    }*/
-    
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void chatEvent(ClientChatReceivedEvent evt) {
+        if (Command.processCommand(evt.message.getUnformattedText())) evt.setCanceled(true);// TODO: add pm feature and PT chat
+    }
+
 }
+

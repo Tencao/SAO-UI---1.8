@@ -1,9 +1,6 @@
 package com.bluexin.saoui.ui;
 
-import com.bluexin.saoui.util.SAOIcon;
-import com.bluexin.saoui.SAOMod;
-import com.bluexin.saoui.util.SAOID;
-import com.bluexin.saoui.util.SAOParentGUI;
+import com.bluexin.saoui.util.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.fml.relauncher.Side;
@@ -13,7 +10,7 @@ import java.util.List;
 
 @SideOnly(Side.CLIENT)
 public class SAOFriendGUI extends SAOButtonGUI {
-	
+
     private EntityPlayer friend;
 
     private SAOFriendGUI(SAOParentGUI gui, int xPos, int yPos, int w, int h, String name) {
@@ -26,7 +23,7 @@ public class SAOFriendGUI extends SAOButtonGUI {
     }
 
     public SAOFriendGUI(SAOParentGUI gui, int xPos, int yPos, String name) {
-        this(gui, xPos, yPos, 150, name);
+        this(gui, xPos, yPos, 100, name);
     }
 
     @Override
@@ -34,7 +31,7 @@ public class SAOFriendGUI extends SAOButtonGUI {
         final EntityPlayer player = getPlayer(mc);
         enabled = (player != null);
 
-        if ((enabled) && (SAOMod.isFriend(player))) {
+        if (enabled && FriendsHandler.instance().isFriend(player)) {
             highlight = true;
             icon = SAOIcon.NONE;
         } else {
@@ -46,18 +43,16 @@ public class SAOFriendGUI extends SAOButtonGUI {
     }
 
     private EntityPlayer getPlayer(Minecraft mc) {
-        if ((friend == null) || (friend.isDead) || (!friend.isEntityAlive())) {
-            friend = findPlayer(mc);
-        }
+        if (friend == null || friend.isDead || !friend.isEntityAlive()) friend = findPlayer(mc);
 
         return friend;
     }
 
     private EntityPlayer findPlayer(Minecraft mc) {
-        final List<EntityPlayer> players = SAOMod.listOnlinePlayers(mc);
+        final List<EntityPlayer> players = StaticPlayerHelper.listOnlinePlayers(mc);
 
         for (final EntityPlayer player : players) {
-            if (SAOMod.getName(player).equals(caption)) {
+            if (StaticPlayerHelper.getName(player).equals(caption)) {
                 return player;
             }
         }

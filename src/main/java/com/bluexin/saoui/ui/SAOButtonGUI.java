@@ -30,12 +30,21 @@ public class SAOButtonGUI extends SAOElementGUI {
         this(gui, saoID, xPos, yPos, 100, string, saoIcon);
     }
 
+    public SAOButtonGUI(SAOParentGUI gui, SAOID saoID, int xPos, int yPos, String string, SAOIcon saoIcon, boolean highlighted) {
+        this(gui, saoID, xPos, yPos, 100, string, saoIcon);
+        highlight = highlighted;
+    }
+
+    public SAOButtonGUI(SAOParentGUI gui, SAOID slot, int xPos, int yPos, int w, int h) {
+        this(gui, slot, xPos, yPos, w, h, "", SAOIcon.NONE);
+    }
+
     @Override
 	public void draw(Minecraft mc, int cursorX, int cursorY) {
         super.draw(mc, cursorX, cursorY);
 
         if (visibility > 0) {
-            SAOGL.glBindTexture(SAOOption.ORIGINAL_UI.value? SAOResources.gui: SAOResources.guiCustom);
+            SAOGL.glBindTexture(SAOOption.ORIGINAL_UI.getValue() ? SAOResources.gui : SAOResources.guiCustom);
 
             final int hoverState = hoverState(cursorX, cursorY);
 
@@ -75,23 +84,11 @@ public class SAOButtonGUI extends SAOElementGUI {
     }
 
     int getColor(int hoverState, boolean bg) {
-        if (bg) {
-            return hoverState == 1 ? SAOColor.DEFAULT_COLOR : hoverState >= 2 ? SAOColor.HOVER_COLOR : SAOColor.DISABLED_MASK;
-        } else {
-            return hoverState == 1 ? SAOColor.DEFAULT_FONT_COLOR : hoverState >= 2 ? SAOColor.HOVER_FONT_COLOR : SAOColor.DEFAULT_FONT_COLOR & SAOColor.DISABLED_MASK;
-        }
+        return bg ? hoverState == 1 ? SAOColor.DEFAULT_COLOR.rgba : hoverState >= 2 ? SAOColor.HOVER_COLOR.rgba : SAOColor.DISABLED_MASK.rgba : hoverState == 1 ? SAOColor.DEFAULT_FONT_COLOR.rgba : hoverState >= 2 ? SAOColor.HOVER_FONT_COLOR.rgba : SAOColor.DEFAULT_FONT_COLOR.rgba & SAOColor.DISABLED_MASK.rgba;
     }
 
     int hoverState(int cursorX, int cursorY) {
-        if (mouseOver(cursorX, cursorY)) {
-            return 2;
-        } else if (highlight) {
-            return 3;
-        } else if (enabled) {
-            return 1;
-        } else {
-            return 0;
-        }
+        return mouseOver(cursorX, cursorY) ? 2 : highlight ? 3 : enabled ? 1 : 0;
     }
 
     @Override

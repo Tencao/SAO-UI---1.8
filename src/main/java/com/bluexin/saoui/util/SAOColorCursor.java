@@ -6,34 +6,24 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 @SideOnly(Side.CLIENT)
 public final class SAOColorCursor {
 
-    public static final SAOColorCursor CREATIVE = new SAOColorCursor(SAOColorState.CREATIVE, false);
-
-    private static final long STATE_TIME = 24 * 60 * 60 * 1000; // DAY IN MILLISECONDS
+    private static final long STATE_TIME = 24 * 60 * 60 * 20; // DAY IN TICKS
 
     private SAOColorState colorState;
     private long downgradeTime;
 
     public SAOColorCursor(SAOColorState defaultState, boolean set) {
-        if (set) {
-            colorState = defaultState;
-            set(defaultState);
-        } else {
-            colorState = defaultState;
-            downgradeTime = 0;
-        }
+        colorState = defaultState;
+        if (set) set(defaultState);
+        else downgradeTime = 0;
     }
 
     public SAOColorCursor() {
         this(SAOColorState.INNOCENT, false);
     }
 
-    public final void update(long delay) {
-        if (delay >= downgradeTime) {
-            colorState = SAOColorState.INNOCENT;
-            downgradeTime = 0;
-        } else {
-            downgradeTime -= delay;
-        }
+    public final void update() {
+        if (downgradeTime == 0) colorState = SAOColorState.INNOCENT;
+        else downgradeTime--;
     }
 
     public final void set(SAOColorState state) {

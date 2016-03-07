@@ -6,16 +6,16 @@ import net.minecraft.client.Minecraft;
 public class SAOAlertGUI extends SAOElementGUI {
 
     @SuppressWarnings("unused")
-	private String caption;
-    private int alertColor;
+    private String caption;
+    private SAOColor alertColor;
 
-    private SAOAlertGUI(SAOParentGUI gui, int xPos, int yPos, int w, String string, int color) {
+    private SAOAlertGUI(SAOParentGUI gui, int xPos, int yPos, int w, String string, SAOColor color) {
         super(gui, xPos, yPos, w, 32);
         caption = string;
         alertColor = color;
     }
 
-    public SAOAlertGUI(SAOParentGUI gui, int xPos, int yPos, String string, int color) {
+    public SAOAlertGUI(SAOParentGUI gui, int xPos, int yPos, String string, SAOColor color) {
         this(gui, xPos, yPos, autoWidth(string), string, color);
     }
 
@@ -30,9 +30,9 @@ public class SAOAlertGUI extends SAOElementGUI {
         super.draw(mc, cursorX, cursorY);
 
         if (visibility > 0) {
-            SAOGL.glBindTexture(SAOOption.ORIGINAL_UI.value? SAOResources.gui: SAOResources.guiCustom);
+            SAOGL.glBindTexture(SAOOption.ORIGINAL_UI.getValue() ? SAOResources.gui : SAOResources.guiCustom);
 
-            final int color = mouseOver(cursorX, cursorY) ? SAOColor.mediumColor(alertColor, SAOColor.DEFAULT_FONT_COLOR) : alertColor;
+            final int color = mouseOver(cursorX, cursorY) ? alertColor.mediumColor(SAOColor.DEFAULT_FONT_COLOR) : alertColor.rgba;
 
             SAOGL.glColorRGBA(SAOColor.multiplyAlpha(color, visibility));
 

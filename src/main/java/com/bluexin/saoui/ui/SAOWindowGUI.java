@@ -14,17 +14,15 @@ public class SAOWindowGUI extends SAOMenuGUI {
         super(gui, xPos, yPos, w, h);
         elements.add(titleLable = new SAOLabelGUI(this, 0, 0, title, SAOAlign.CENTER));
 
-        if (titleLable.width > width) {
-            width = titleLable.width;
-        }
-    }
-
-    public final void setTitle(String title) {
-        titleLable.caption = title;
+        if (titleLable.width > width) width = titleLable.width;
     }
 
     public final String getTitle() {
         return titleLable.caption;
+    }
+
+    public final void setTitle(String title) {
+        titleLable.caption = title;
     }
 
     @Override
@@ -40,8 +38,8 @@ public class SAOWindowGUI extends SAOMenuGUI {
     @Override
     public void draw(Minecraft mc, int cursorX, int cursorY) {
         if (visibility > 0) {
-            SAOGL.glBindTexture(SAOOption.ORIGINAL_UI.value? SAOResources.gui: SAOResources.guiCustom);
-            SAOGL.glColorRGBA(SAOColor.multiplyAlpha(SAOColor.DEFAULT_COLOR, visibility));
+            SAOGL.glBindTexture(SAOOption.ORIGINAL_UI.getValue() ? SAOResources.gui : SAOResources.guiCustom);
+            SAOGL.glColorRGBA(SAOColor.DEFAULT_COLOR.multiplyAlpha(visibility));
 
             final int left = getX(false);
             final int top = getY(false);
@@ -62,9 +60,8 @@ public class SAOWindowGUI extends SAOMenuGUI {
                 SAOGL.glTexturedRect(left, top + topBox, 0, 85, width2, borderSize);
                 SAOGL.glTexturedRect(left + width2, top + topBox, 200 - width2, 85, width2, borderSize);
 
-                if ((size + 1) / 2 > 10) {
+                if ((size + 1) / 2 > 10)
                     SAOGL.glTexturedRect(left, top + topBox + borderSize, width, size - borderSize * 2, 0, 95, 200, 10);
-                }
 
                 SAOGL.glTexturedRect(left, top + topBox + size - borderSize, 0, 115 - borderSize, width2, borderSize);
                 SAOGL.glTexturedRect(left + width2, top + topBox + size - borderSize, 200 - width2, 115 - borderSize, width2, borderSize);
