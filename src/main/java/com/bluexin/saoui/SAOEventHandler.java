@@ -11,6 +11,7 @@ import net.minecraft.entity.passive.IAnimals;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.event.entity.EntityEvent;
+import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.entity.living.*;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
@@ -130,6 +131,14 @@ public class SAOEventHandler {
         if (e.entity instanceof EntityLivingBase)
             if (ColorStateHandler.getInstance().getDefault((EntityLivingBase)e.entity) == null && !(e.entity instanceof EntityPlayer))
                 ColorStateHandler.getInstance().genDefaultState((EntityLivingBase)e.entity);
+    }
+
+    @SubscribeEvent
+    public void joinWorld(EntityJoinWorldEvent e) {
+        if (!SAOMod.verChecked && e.entity.worldObj.isRemote && e.entity instanceof EntityPlayer) {
+            VersionChecker vc = new VersionChecker((EntityPlayer) e.entity);
+            vc.run();
+        }
     }
 
     @SubscribeEvent
