@@ -83,7 +83,7 @@ public class VersionChecker extends Thread { // TODO: handle indev vs public
         if (msg != null && !msg.isEmpty()) Minecraft.getMinecraft().addScheduledTask(() -> {
             final EntityPlayer pl = this.playerRef.get();
             if (pl != null) pl.addChatMessage(new ChatComponentText(msg));
-            SAOMod.verChecked = true;
+            SAOCore.verChecked = true;
         });
     }
 }
